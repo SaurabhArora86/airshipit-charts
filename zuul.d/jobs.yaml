@@ -1,0 +1,84 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- job:
+    name: airship-charts-lint-and-build
+    run: playbooks/airship-zuul-linter.yaml
+    description: Lint Helm charts
+    nodeset: airship-charts-single-node
+
+- job:
+    name: airship-jarvis
+    timeout: 7200
+    pre-run:
+      - playbooks/airship-setup.yaml
+    run: playbooks/gate-runner.yaml
+    post-run: playbooks/gather-logs.yaml
+    description: Perform CI on the Jarvis Suite of applications
+    nodeset: airship-charts-single-node
+    vars:
+      aio_params:
+        feature_gates: ""
+      collect_kubernetes_logs_namespace: tekton-pipelines
+      gate_scripts_relative_path: ../charts
+      gate_scripts:
+        - ./tools/gate/jarvis/050-setup-development-ca.sh
+        - ./tools/gate/jarvis/100-deploy-k8s.sh
+        - ./tools/gate/jarvis/200-deploy-support.sh
+        - ./tools/gate/jarvis/300-deploy-loki.sh
+        - ./tools/gate/jarvis/400-deploy-harbor.sh
+        - ./tools/gate/jarvis/500-deploy-gerrit.sh
+        - ./tools/gate/jarvis/600-deploy-tekton.sh
+        - ./tools/gate/jarvis/700-deploy-jarvis-system.sh
+        - ./tools/gate/jarvis/800-deploy-jarvis-projects.sh
+
+- job:
+    name: airship-jarvis-sample-workload-validation
+    files:
+      - ^tools/gate/jarvis/5G-SA-core/.*$
+      - ^zuul\.d/.*$
+    timeout: 7200
+    pre-run:
+      - playbooks/airship-setup.yaml
+    run: playbooks/gate-runner.yaml
+    post-run: playbooks/gather-logs.yaml
+    description: Perform CI on the Jarvis Sample workload
+    nodeset: airship-charts-single-node
+    vars:
+      aio_params:
+        feature_gates: ""
+      collect_kubernetes_logs_namespace: tekton-pipelines
+      gate_scripts_relative_path: ../charts
+      gate_scripts:
+        - ./tools/gate/jarvis/050-setup-development-ca.sh
+        - ./tools/gate/jarvis/100-deploy-k8s.sh
+        - ./tools/gate/jarvis/5G-SA-core/200-build-containers.sh
+        - ./tools/gate/jarvis/5G-SA-core/300-check-charts.sh
+        - ./tools/gate/jarvis/5G-SA-core/400-smoke-deployment.sh
+
+- job:
+    name: airship-charts-upload-git-mirror
+    parent: upload-git-mirror
+    description: Mirrors airship/charts to airshipit/charts
+    nodeset: airship-charts-single-node
+    vars:
+      git_mirror_repository: airshipit/charts
+    secrets:
+      - name: git_mirror_credentials
+        secret: airship-charts-airshipit-github-secret
+        pass-to-parent: true
+
+- job:
+    name: airship-charts-publish
+    parent: publish-openstack-artifacts
+    run: playbooks/publish/run.yaml
+    post-run: playbooks/publish/post.yaml

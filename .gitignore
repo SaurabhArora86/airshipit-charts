@@ -1,0 +1,18 @@
+**.tgz
+
+# doc build environment and artifacts
+doc/build
+doc/source/_build
+.tox/
+
+# IDE files
+.vscode/
+.idea/
+
+tools/deployment/vagrant/.vagrant
+
+# Helm dependencies lock file
+Chart.lock
+
+# Vagrant files
+.vagrant

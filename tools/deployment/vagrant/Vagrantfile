@@ -1,0 +1,39 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "generic/ubuntu2004"
+
+  if Vagrant.has_plugin?("vagrant-proxyconf")
+    config.proxy.http     = ENV["HTTP_PROXY"]
+    config.proxy.https    = ENV["HTTPS_PROXY"]
+    if ENV["NO_PROXY"].nil?
+      config.proxy.no_proxy = "localhost,127.0.0.1,10.96.0.0/12,192.168.49.0/24,192.168.99.0/24,10.0.2.15,10.244.0.0/16,172.28.0.0/30,.minikube.internal,.svc,.svc.cluster.local,jarvis.local"
+    else
+      config.proxy.no_proxy = ENV["NO_PROXY"]
+    end
+  end
+
+  config.vm.synced_folder "../../../", "/airship_charts"
+
+  config.vm.network "private_network", ip: "192.168.56.10"
+
+  config.vm.provider "libvirt" do |libvirt|
+    libvirt.cpus = 2
+    libvirt.memory = 8192
+  end
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.gui = false
+    vb.cpus = 2
+    vb.memory = 8192
+  end
+
+  config.vm.provision "shell", env: {"PRIVATE_NS" => ENV["PRIVATE_NS"]}, inline: <<-SHELL
+    set -ex
+    cd /airship_charts/
+    ./tools/gate/dex/100-deploy-k8s-with-extra-sans.sh
+    ./tools/gate/dex/200-deploy-certmanger.sh
+    ./tools/gate/dex/300-deploy-dex.sh
+  SHELL
+end

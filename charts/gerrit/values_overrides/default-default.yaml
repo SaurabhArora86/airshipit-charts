@@ -1,0 +1,12 @@
+# NOTE(portdirect): images from rebuilt on ubuntu, and have the checks plugin pre-installed
+# https://github.com/portdirect/gerrit-k8s/commit/cbbe103d552af84885289aeb81dd09b1195c5e8b
+images:
+  registry:
+    name: quay.io
+  version: v0.1-194-gcbbe103-3.3.1
+gerrit:
+  images:
+    gerritInit: port/gerrit-init
+    gerrit: port/gerrit
+gitGC:
+  image: port/git-gc

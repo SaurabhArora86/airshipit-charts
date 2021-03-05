@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dex-aio
+  namespace: dex
+  labels:
+    app.kubernetes.io/name: dex-aio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: dex-aio
+subjects:
+- kind: ServiceAccount
+  name: dex-aio
+  namespace: dex

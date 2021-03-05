@@ -1,0 +1,183 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dex-aio
+  namespace: dex
+  labels:
+    app.kubernetes.io/name: dex-aio
+  annotations:
+    scheduler.alpha.kubernetes.io/critical-pod: ''
+spec:
+  replicas: 1
+  minReadySeconds: 30
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dex-aio
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dex-aio
+    spec:
+      hostAliases:
+      - ip: "127.0.0.1"
+        hostnames:
+          - dex.jarvis.local
+      serviceAccountName: dex-aio
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - operator: Exists
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      containers:
+      - name: nginx
+        image: docker.io/nginx:1.17.10-alpine
+        imagePullPolicy: IfNotPresent
+        command:
+          # - tail
+          # - -f
+          # - /dev/null
+          - nginx
+          - -g
+          - 'daemon off;'
+        ports:
+          - name: http
+            containerPort: 80
+            protocol: TCP
+          - name: https
+            containerPort: 443
+            protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /ca.crt
+            port: http
+        readinessProbe:
+          httpGet:
+            path: /ca.crt
+            port: http
+        volumeMounts:
+          - name: config-nginx-conf
+            mountPath: /etc/nginx/nginx.conf
+            subPath: nginx.conf
+          - name: tls-ca-crt
+            mountPath: /usr/share/nginx/html/
+          - name: tls-crt
+            mountPath: /var/run/secrets/airshipit.org/tls/crt/
+          - name: tls-key
+            mountPath: /var/run/secrets/airshipit.org/tls/key/
+      - name: dex
+        image: quay.io/dexidp/dex:v2.20.0
+        imagePullPolicy: IfNotPresent
+        command:
+          - /usr/local/bin/dex
+          - serve
+          - /etc/dex/dex.yaml
+        env:
+          - name: LDAP_BINDPW
+            valueFrom:
+              secretKeyRef:
+                name: dex-aio
+                key: ldap-bindpw
+        livenessProbe:
+          # note, the api in this container is lisening on localhost, so we hit it via the nginx sidecar
+          # we have to set the port manually, as names dont carry across containers.
+          httpGet:
+            scheme: HTTPS
+            path: /dex/healthz
+            port: 443
+        readinessProbe:
+          # note, the api in this container is lisening on localhost, so we hit it via the nginx sidecar
+          # we have to set the port manually, as names dont carry across containers.
+          httpGet:
+            scheme: HTTPS
+            path: /dex/healthz
+            port: 443
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+        volumeMounts:
+          - name: config-dex-yaml
+            mountPath: /etc/dex/dex.yaml
+            subPath: dex.yaml
+          - name: tls-crt
+            mountPath: /var/run/secrets/airshipit.org/tls/crt/
+          - name: tls-key
+            mountPath: /var/run/secrets/airshipit.org/tls/key/
+      - name: authenticator
+        image: docker.io/mintel/dex-k8s-authenticator:1.2.0
+        imagePullPolicy: IfNotPresent
+        command:
+          - /app/bin/dex-k8s-authenticator
+          - --config
+          - /app/authenticator.yaml
+        livenessProbe:
+          httpGet:
+            path: /ui/
+            scheme: HTTPS
+            port: 443
+        readinessProbe:
+          httpGet:
+            path: /ui/
+            scheme: HTTPS
+            port: 443
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+        volumeMounts:
+          - name: config-authenticator-yaml
+            mountPath: /app/authenticator.yaml
+            subPath: authenticator.yaml
+          - name: config-nsswitch-conf
+            mountPath: /etc/nsswitch.conf
+            subPath: nsswitch.conf
+          - name: tls-ca-crt
+            mountPath: /etc/ssl/certs/ca-certificates.crt
+            subPath: ca.crt
+          - name: tls-crt
+            mountPath: /var/run/secrets/airshipit.org/tls/crt/
+          - name: tls-key
+            mountPath: /var/run/secrets/airshipit.org/tls/key/
+      volumes:
+      - name: config-dex-yaml
+        configMap:
+          name: dex-aio
+          items:
+          - key: dex.yaml
+            path: dex.yaml
+      - name: config-nginx-conf
+        configMap:
+          name: dex-aio
+          items:
+          - key: nginx.conf
+            path: nginx.conf
+      - name: config-nsswitch-conf
+        configMap:
+          name: dex-aio
+          items:
+          - key: nsswitch.conf
+            path: nsswitch.conf
+      - name: config-authenticator-yaml
+        configMap:
+          name: dex-aio
+          items:
+          - key: authenticator.yaml
+            path: authenticator.yaml
+      - name: tls-ca-crt
+        secret:
+          secretName: dex-aio-tls
+          items:
+          - key: ca.crt
+            path: ca.crt
+      - name: tls-crt
+        secret:
+          secretName: dex-aio-tls
+          items:
+          - key: tls.crt
+            path: tls.crt
+      - name: tls-key
+        secret:
+          secretName: dex-aio-tls
+          items:
+          - key: tls.key
+            path: tls.key

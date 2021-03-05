@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dex
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: dex-aio
+  namespace: dex
+  labels:
+    app.kubernetes.io/name: dex-aio
+spec:
+  commonName: dex.jarvis.local
+  dnsNames:
+  - dex.jarvis.local
+  issuerRef:
+    kind: ClusterIssuer
+    name: jarvis-ca-issuer
+  secretName: dex-aio-tls
+  subject:
+    organizations:
+    - Kubernetes API
