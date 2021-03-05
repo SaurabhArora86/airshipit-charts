@@ -8,10 +8,10 @@ metadata:
 spec:
   secretName: dex-aio-tls
   issuerRef:
-    name: {{ .Values.params.endpoints.tls.issuer.name }}
+    name: jarvis-kubernetes
     # We can reference ClusterIssuers by changing the kind here.
     # The default value is Issuer (i.e. a locally namespaced Issuer)
-    kind: {{ .Values.params.endpoints.tls.issuer.kind }}
+    kind: Issuer
   commonName: dex.jarvi.local
   organization:
   - Kubernetes API
