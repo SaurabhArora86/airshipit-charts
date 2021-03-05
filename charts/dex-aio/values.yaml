@@ -39,7 +39,7 @@ params:
       http: 5554
       k8s: 6443
     tls:
-      cert_manager: true
+      cert_manager: false
       issuer:
         name: workload-cluster-ca-issuer
         kind: Issuer
