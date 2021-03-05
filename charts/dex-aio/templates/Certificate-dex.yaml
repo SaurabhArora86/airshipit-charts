@@ -19,8 +19,4 @@ spec:
   - {{ .Values.params.endpoints.hostname }}
 ...
 {{- end -}}
-{{- if .Values.params.endpoints.tls.cert_manager -}}
 {{- include "helpers.template.overlay" ( dict "Global" $ "template_definition" "Certificate-dex" ) }}
-{{- else -}}
-{{- include "helpers.template.overlay" ( dict "Global" $ "template_definition" "Certificate-dex" ) }}
-{{- end -}}
